@@ -1,15 +1,16 @@
-# Hum2Music
+# Hum2Music V1.1
 
-Hum2Music V1 is a browser-only melody capture prototype.
+This version is designed for imperfect humming rather than professional singing.
 
-Features:
-- Microphone humming input
-- Real-time pitch/note detection
-- Melody note sequence
-- Browser playback
-- Mobile-friendly static site
-- No backend or API key
+Changes:
+- Rejects low-confidence pitch detections.
+- Ignores short pitch noise.
+- Stabilizes pitch before committing a note.
+- Quantizes pitch to semitones.
+- Merges repeated detections.
+- Treats silence as silence.
+- Adds Play and Stop playback controls.
+- Uses triangle-wave playback.
+- Adds adjustable minimum note length and pitch stability.
 
-For GitHub Pages, upload these files to a repository and enable Pages. Microphone access normally requires HTTPS or localhost.
-
-V1 uses a simple Web Audio autocorrelation pitch detector, so background noise and unstable humming can affect detection.
+Open through HTTPS (for example GitHub Pages) so Safari can request microphone access.
