@@ -1,16 +1,3 @@
-# Hum2Music V1.1
+# Hum2Music V2
 
-This version is designed for imperfect humming rather than professional singing.
-
-Changes:
-- Rejects low-confidence pitch detections.
-- Ignores short pitch noise.
-- Stabilizes pitch before committing a note.
-- Quantizes pitch to semitones.
-- Merges repeated detections.
-- Treats silence as silence.
-- Adds Play and Stop playback controls.
-- Uses triangle-wave playback.
-- Adds adjustable minimum note length and pitch stability.
-
-Open through HTTPS (for example GitHub Pages) so Safari can request microphone access.
+Browser-based humming-to-melody prototype. V2 records the whole phrase first, then uses Essentia PitchMelodia and pitch-contour segmentation to create cleaner monophonic notes. Includes piano-roll view, playback with Stop, and MIDI export. Audio stays in the browser.
