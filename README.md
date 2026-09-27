@@ -1,3 +1,8 @@
-# Hum2Music V2
+# Hum2Music V3
 
-Browser-based humming-to-melody prototype. V2 records the whole phrase first, then uses Essentia PitchMelodia and pitch-contour segmentation to create cleaner monophonic notes. Includes piano-roll view, playback with Stop, and MIDI export. Audio stays in the browser.
+V3 preserves melody repetition and detected gaps, with two explicit rhythm modes:
+
+- Original Timing: keeps detected note starts, durations and gaps.
+- Quantized Timing: snaps note starts/durations to a selectable grid and BPM.
+
+Includes playback Stop and MIDI export for the selected mode. Audio is analysed locally in the browser.
