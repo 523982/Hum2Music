@@ -1,54 +1,94 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0e14">
-<title>Hum2Music V3 Fixed</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<main>
-<header>
-<div class="eyebrow">HUM2MUSIC · V3 FIXED</div>
-<h1>Humming → Melody</h1>
-<p>Preserve notes, repetitions, gaps and timing.<br>Choose Original Timing or Quantized Timing.</p>
-<span id="engine">Checking microphone engine…</span>
-</header>
-
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hum2Music V3</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0b0e14;color:#eee;margin:0}main{max-width:1000px;margin:auto;padding:30px 18px}section{background:#12161e;border:1px solid #303747;border-radius:22px;padding:22px;margin:18px 0}h1{font-size:clamp(42px,8vw,72px)}p{color:#adb5c3}button{font:inherit;font-weight:700;padding:16px 22px;margin:4px;border-radius:16px;border:1px solid #555;background:#202633;color:white;touch-action:manipulation}#start{background:#fff;color:#111}button:disabled{opacity:.4}#timer{font-size:30px;font-weight:700;margin:12px 4px}#status{color:#b9c0cc}pre{white-space:pre-wrap;color:#8993a4;font-size:12px}canvas{width:100%;background:#090c12;border-radius:12px}.note{display:inline-block;border:1px solid #394152;border-radius:8px;padding:7px;margin:3px}label{margin:5px;color:#b9c0cc}select,input{background:#171c26;color:#eee;border:1px solid #394152;padding:7px;border-radius:8px}
+</style></head><body><main>
+<div style="letter-spacing:2px;color:#8993a4;font-weight:700">HUM2MUSIC · V3 RECORDING FIX</div>
+<h1>Humming → Melody</h1><p>Capture notes, repetitions, gaps and timing.</p>
 <section>
-<button id="record" type="button">● Start recording</button>
-<button id="stop" type="button" disabled>■ Stop</button>
-<button id="clear" type="button">Clear</button>
-<div><b id="timer">00:00</b> <span id="status">Ready — tap Start recording</span></div>
-<pre id="debug"></pre>
+<button id="start">● Start recording</button><button id="stop" disabled>■ Stop</button><button id="clear">Clear</button>
+<div id="timer">00:00</div><div id="status">Ready — tap Start recording</div><pre id="diag">Loading...</pre>
 </section>
-
-<section>
-<h2>Melody <small id="count">0 notes</small></h2>
-<div class="modes">
+<section><h2>Melody <small id="count">0 notes</small></h2>
 <label><input type="radio" name="mode" value="original" checked> Original Timing</label>
 <label><input type="radio" name="mode" value="quantized"> Quantized Timing</label>
-<select id="division"><option value="4">1/4</option><option value="8" selected>1/8</option><option value="16">1/16</option></select>
-<label>Tempo <input id="bpm" type="number" min="50" max="180" value="100"></label>
-</div>
-<canvas id="roll" width="1200" height="380"></canvas>
-<div id="notes">Record something to see the melody.</div>
-<button id="play" type="button" disabled>▶ Play</button>
-<button id="stopplay" type="button" disabled>■ Stop</button>
-<button id="midi" type="button" disabled>⇩ Export MIDI</button>
-</section>
+<label>Tempo <input id="bpm" type="number" value="100" min="50" max="180"></label>
+<label>Grid <select id="grid"><option value="4">1/4</option><option value="8" selected>1/8</option><option value="16">1/16</option></select></label>
+<canvas id="roll" width="1200" height="350"></canvas><div id="notes">Record something to see the melody.</div>
+<button id="play" disabled>▶ Play</button><button id="stopplay" disabled>■ Stop</button><button id="midi" disabled>⇩ MIDI</button>
+</section></main>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id),names=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+let rec=null,stream=null,chunks=[],recording=false,t0=0,timer=null,original=[],quantized=[],audio=null,voices=[];
+const start=$("start"),stop=$("stop"),clear=$("clear"),status=$("status"),diag=$("diag"),timerEl=$("timer"),notes=$("notes"),count=$("count"),playBtn=$("play"),stopPlay=$("stopplay"),midiBtn=$("midi"),canvas=$("roll"),cx=canvas.getContext("2d");
+function say(x){status.textContent=x} function debug(x){diag.textContent=x}
+debug("Application loaded.\\nStart button listener installing...\\nHTTPS: "+(location.protocol==="https:"?"YES":"NO")+"\\ngetUserMedia: "+(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia?"YES":"NO")+"\\nMediaRecorder: "+(window.MediaRecorder?"YES":"NO"));
 
-<section>
-<b>How to hum</b>
-<ul>
-<li>Tap Start recording and allow microphone access when Safari asks.</li>
-<li>Hum one note at a time.</li>
-<li>Repeat notes deliberately.</li>
-<li>Leave natural gaps between notes and phrases.</li>
-</ul>
-</section>
-</main>
-<script src="app.js?v=4"></script>
-</body>
-</html>
+function startRec(e){
+ if(e){e.preventDefault();e.stopPropagation()}
+ debug("START BUTTON EVENT RECEIVED.\\nRequesting microphone permission...");
+ say("Requesting microphone permission...");
+ if(location.protocol!=="https:"&&location.hostname!=="localhost"){say("HTTPS is required");debug("ERROR: Open the GitHub Pages HTTPS URL.");return}
+ if(!navigator.mediaDevices?.getUserMedia){say("Microphone API unavailable");debug("ERROR: getUserMedia unavailable. Check Safari microphone permission.");return}
+ if(!window.MediaRecorder){say("Recorder unavailable");debug("ERROR: MediaRecorder unavailable.");return}
+ navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:false,noiseSuppression:false,autoGainControl:false}})
+ .then(begin).catch(e=>{say("Microphone permission failed");debug("MICROPHONE ERROR\\n"+(e.name||"unknown")+"\\n"+(e.message||"")+
+ "\\n\\nOn iPhone: Settings → Safari → Microphone → Allow, then reload.")});
+}
+start.addEventListener("click",startRec);
+start.addEventListener("pointerup",e=>{if(e.pointerType==="touch")startRec(e)});
+
+function begin(s){
+ stream=s;chunks=[];let mime="";
+ ["audio/mp4","audio/webm;codecs=opus","audio/webm"].some(x=>{try{if(MediaRecorder.isTypeSupported(x)){mime=x;return true}}catch(e){}return false});
+ try{rec=mime?new MediaRecorder(s,{mimeType:mime}):new MediaRecorder(s)}catch(e){say("Could not create recorder");debug("MediaRecorder ERROR: "+e.message);return}
+ rec.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};rec.onerror=e=>debug("RECORDER ERROR");
+ rec.onstop=finish;rec.start(200);recording=true;t0=performance.now();timer=setInterval(()=>timerEl.textContent=fmt((performance.now()-t0)/1000),100);
+ start.disabled=true;stop.disabled=false;clear.disabled=true;say("Recording... hum your melody");debug("MICROPHONE ACTIVE.\\nRecording is running.");
+}
+stop.addEventListener("click",stopRec);
+function stopRec(){
+ if(!recording)return;recording=false;try{rec.requestData()}catch(e){}try{rec.stop()}catch(e){}
+ stream?.getTracks().forEach(t=>t.stop());stream=null;clearInterval(timer);start.disabled=false;stop.disabled=true;clear.disabled=false;say("Analysing melody...");
+}
+function finish(){
+ let blob=new Blob(chunks,{type:rec?.mimeType||"audio/mp4"}),AC=window.AudioContext||window.webkitAudioContext;
+ if(!blob.size){say("No audio recorded");return} if(!AC){say("Audio analysis unavailable");return}
+ audio=new AC();blob.arrayBuffer().then(b=>audio.decodeAudioData(b)).then(buf=>{
+   if(buf.duration<.5)throw Error("Recording is too short.");if(buf.duration>30)throw Error("Keep recordings below 30 seconds.");
+   original=detect(buf.getChannelData(0),buf.sampleRate);quantized=quant(original);if(!original.length)throw Error("No stable notes detected.");
+   render();playBtn.disabled=false;stopPlay.disabled=false;midiBtn.disabled=false;say("Done — "+original.length+" notes detected");debug("SUCCESS. Audio analysed. Original timing retained.");
+ }).catch(e=>{say("Audio analysis failed");debug("ANALYSIS ERROR: "+e.message)});
+}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(Math.floor(s%60)).padStart(2,"0")}
+function detect(x,sr){
+ let fs=2048,hop=256,minHz=70,maxHz=1000,minLag=Math.floor(sr/maxHz),maxLag=Math.min(Math.floor(sr/minHz),fs-1),frames=[],total=0;
+ for(let s=0;s+fs<=x.length;s+=hop){let p=0;for(let i=0;i<fs;i++)p+=x[s+i]*x[s+i];let r=Math.sqrt(p/fs);frames.push([s,r]);total+=r}
+ let th=Math.max(.008,total/Math.max(1,frames.length)*.35),pts=[];
+ for(let f of frames){if(f[1]<th){pts.push(null);continue}let b=f[0],e=b+fs,mean=0;for(let i=b;i<e;i++)mean+=x[i];mean/=fs;let best=-1,bc=0;
+  for(let lag=minLag;lag<=maxLag;lag++){let ss=0,aa=0,bb=0;for(let i=b;i<e-lag;i++){let a=x[i]-mean,v=x[i+lag]-mean;ss+=a*v;aa+=a*a;bb+=v*v}let c=ss/Math.sqrt((aa*bb)||1);if(c>bc){bc=c;best=lag}}
+  if(best<0||bc<.52){pts.push(null);continue}let hz=sr/best;if(hz<minHz||hz>maxHz){pts.push(null);continue}pts.push({m:Math.round(69+12*Math.log(hz/440)/Math.LN2),s:b/sr,e:e/sr})
+ }
+ let out=[],cur=null,step=hop/sr;
+ for(let p of pts){if(!p){if(cur){if(cur.e-cur.s>=.1)out.push({t:cur.s,d:cur.e-cur.s,m:cur.m});cur=null}continue}
+  if(!cur){cur={s:p.s,e:p.e,m:p.m};continue}
+  if(p.s-cur.e<=step*2.5&&Math.abs(p.m-cur.m)<=1){cur.e=p.e;cur.m=Math.round((cur.m*3+p.m)/4)}
+  else{if(cur.e-cur.s>=.1)out.push({t:cur.s,d:cur.e-cur.s,m:cur.m});cur={s:p.s,e:p.e,m:p.m}}
+ }
+ if(cur&&cur.e-cur.s>=.1)out.push({t:cur.s,d:cur.e-cur.s,m:cur.m});return out;
+}
+function quant(ns){let bpm=Math.max(50,Math.min(180,+$("bpm").value||100)),g=60/bpm/(+$("grid").value||8);return ns.map(n=>({t:Math.max(0,Math.round(n.t/g)*g),d:Math.max(g,Math.round(n.d/g)*g),m:n.m}))}
+function active(){return document.querySelector('input[name="mode"]:checked').value==="quantized"?quantized:original}
+function nn(m){return names[(m%12+12)%12]+(Math.floor(m/12)-1)}
+function render(){let ns=active();count.textContent=ns.length+" notes";notes.innerHTML=ns.map(n=>'<span class="note">'+nn(n.m)+" · "+n.d.toFixed(2)+"s · "+n.t.toFixed(2)+"s</span>").join("");draw(ns)}
+function draw(ns){let w=canvas.width,h=canvas.height;cx.clearRect(0,0,w,h);cx.fillStyle="#090c12";cx.fillRect(0,0,w,h);if(!ns.length)return;let lo=Math.min(...ns.map(n=>n.m))-4,hi=Math.max(...ns.map(n=>n.m))+4,total=Math.max(...ns.map(n=>n.t+n.d)),row=h/(hi-lo+1),left=45;for(let m=lo;m<=hi;m++){let y=h-(m-lo+1)*row;cx.strokeStyle=m%12===0?"#303746":"#181d25";cx.beginPath();cx.moveTo(left,y);cx.lineTo(w,y);cx.stroke()}for(let n of ns){let x=left+n.t/total*(w-left-10),ww=Math.max(4,n.d/total*(w-left-10)-2),y=h-(n.m-lo+1)*row;cx.fillStyle="#e5e8ed";cx.fillRect(x,y+2,ww,Math.max(7,row-4))}}
+function play(){let ns=active();if(!ns.length)return;stopPlayback();let AC=window.AudioContext||window.webkitAudioContext;audio=new AC();let base=audio.currentTime+.08;ns.forEach(n=>{let o=audio.createOscillator(),g=audio.createGain(),t=base+n.t;o.type="sine";o.frequency.value=440*Math.pow(2,(n.m-69)/12);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.16,t+.015);g.gain.exponentialRampToValueAtTime(.0001,t+Math.max(.04,n.d-.02));o.connect(g).connect(audio.destination);o.start(t);o.stop(t+n.d+.03);voices.push(o)});say("Playing melody...")}
+function stopPlayback(){voices.forEach(o=>{try{o.stop()}catch(e){}});voices=[];if(audio){try{audio.close()}catch(e){}audio=null}}
+function clearAll(){stopPlayback();original=[];quantized=[];notes.textContent="Record something to see the melody.";count.textContent="0 notes";timerEl.textContent="00:00";playBtn.disabled=true;stopPlay.disabled=true;midiBtn.disabled=true;say("Ready — tap Start recording");debug("Application loaded. Waiting for Start recording.");draw([])}
+playBtn.addEventListener("click",play);stopPlay.addEventListener("click",stopPlayback);clear.addEventListener("click",clearAll);
+document.querySelectorAll('input[name="mode"],#bpm,#grid').forEach(e=>e.addEventListener("change",()=>{if(original.length){quantized=quant(original);render()}}));
+window.addEventListener("error",e=>debug("JAVASCRIPT ERROR:\\n"+e.message));
+})();
+</script></body></html>
